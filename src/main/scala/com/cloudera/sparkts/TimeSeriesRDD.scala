@@ -36,7 +36,7 @@ import org.apache.spark.util.StatCounter
 
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
-
+import scala.math.floor
 /**
  * A lazy distributed collection of univariate series with a conformed time dimension. Lazy in the
  * sense that it is an RDD: it encapsulates all the information needed to generate its elements,
@@ -114,6 +114,43 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
   }
 
   /**
+   * Returns a TimeSeriesRDD where each time series is summed with a running n-window. The new
+   * RDD will be missing the first n date-times.
+   */
+  def rollsum(n: Int, align: OptAlign = OptAlign.Center): TimeSeriesRDD[K] = {
+    mapSeries(vec =>
+      new DenseVector(vec.toArray.sliding(n).toList.map(_.sum).toIndexedSeq.toArray[Double]),
+      align match {
+        case OptAlign.Right => index.islice(n, index.size)
+        case OptAlign.Center => index.islice(floor((n - 1) / 2).toInt, index.size - n + 1 + floor((n - 1) / 2).toInt)
+        case OptAlign.Left => index.islice(0, index.size - n)
+      }
+    )
+  }
+
+  /**
+    * Returns a TimeSeriesRDD where each time series is summed.
+    */
+  def sum(): TimeSeriesRDD[K] = rollsum(index.size)
+
+  /**
+    * Returns a TimeSeriesRDD where each time series is averaged with a running n-window. The new
+    * RDD will be missing the first n date-times.
+    */
+  def mean(n: Int): TimeSeriesRDD[K] = {
+    mapSeries(vec =>
+      new DenseVector(vec.toArray.sliding(n).toList.map(_.sum / n).toIndexedSeq.toArray[Double]),
+      index.slice(n, index.size)
+    )
+  }
+
+  /**
+    * Returns a TimeSeriesRDD where each time series is averaged.
+    */
+  def mean(): TimeSeriesRDD[K] = mean(index.size)
+
+
+  /**
    * Returns a TimeSeriesRDD where each time series is quotiented with the given order. The new
    * RDD will be missing the first n date-times.
    */
@@ -177,6 +214,7 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
 
   /**
    * Returns a TimeSeriesRDD that's a sub-slice of the given series.
+ *
    * @param start The start date the for slice.
    * @param end The end date for the slice (inclusive).
    */
@@ -188,6 +226,7 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
 
   /**
    * Returns a TimeSeriesRDD that's a sub-slice of the given series.
+ *
    * @param start The start date the for slice.
    * @param end The end date for the slice (inclusive).
    */
@@ -412,6 +451,7 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
    * supported for cases with a uniform time series index. See
    * [[http://spark.apache.org/docs/latest/mllib-data-types.html]] for more information on the
    * matrix data structure
+ *
    * @param nPartitions number of partitions, default to -1, which represents the same number
    *                    as currently used for the TimeSeriesRDD
    * @return an equivalent IndexedRowMatrix
@@ -439,6 +479,7 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
    * of the type of time index.  See
    * [[http://spark.apache.org/docs/latest/mllib-data-types.html]] for more information on the
    * matrix data structure
+ *
    * @return an equivalent RowMatrix
    */
   def toRowMatrix(nPartitions: Int = -1): RowMatrix = {
