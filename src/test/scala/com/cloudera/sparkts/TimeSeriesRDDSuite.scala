@@ -37,6 +37,43 @@ import org.scalatest.{FunSuite, ShouldMatchers}
 import scala.collection.Map
 
 class TimeSeriesRDDSuite extends FunSuite with LocalSparkContext with ShouldMatchers {
+  test("rollsum") {
+    val conf = new SparkConf().setMaster("local").setAppName(getClass.getName)
+    TimeSeriesKryoRegistrator.registerKryoClasses(conf)
+    sc = new SparkContext(conf)
+    val vecs = Array(0 until 10, 10 until 20, 20 until 30)
+      .map(_.map(x => x.toDouble).toArray)
+      .map(new DenseVector(_))
+      .map(x => (x(0).toString, x))
+    val start = ZonedDateTime.of(2015, 4, 9, 0, 0, 0, 0, ZoneId.of("Z"))
+    val index = uniform(start, 10, 1.businessDays)
+    val rdd = new TimeSeriesRDD[String](index, sc.parallelize(vecs)).rollsum(2)
+    val contents = rdd.collectAsMap()
+    contents.size should be (3)
+    contents("0.0") should be (new DenseVector((1 to 17 by 2).map(_.toDouble).toArray))
+    contents("10.0") should be (new DenseVector((21 to 37 by 2).map(_.toDouble).toArray))
+    contents("20.0") should be (new DenseVector((41 to 57 by 2).map(_.toDouble).toArray))
+  }
+
+  test("mean") {
+    val conf = new SparkConf().setMaster("local").setAppName(getClass.getName)
+    TimeSeriesKryoRegistrator.registerKryoClasses(conf)
+    sc = new SparkContext(conf)
+    val vecs = Array(0 until 20 by 2, 10 until 30 by 2, 20 until 40 by 2)
+      .map(_.map(x => x.toDouble).toArray)
+      .map(new DenseVector(_))
+      .map(x => (x(0).toString, x))
+    val start = ZonedDateTime.of(2015, 4, 9, 0, 0, 0, 0, ZoneId.of("Z"))
+    val index = uniform(start, 10, 1.businessDays)
+    val rdd = new TimeSeriesRDD[String](index, sc.parallelize(vecs)).mean(2)
+    val contents = rdd.collectAsMap()
+    contents.foreach(println)
+    contents.size should be (3)
+    contents("0.0") should be (new DenseVector((1 to 17 by 2).map(_.toDouble).toArray))
+    contents("10.0") should be (new DenseVector((11 to 27 by 2).map(_.toDouble).toArray))
+    contents("20.0") should be (new DenseVector((21 to 37 by 2).map(_.toDouble).toArray))
+  }
+
   test("slice") {
     val conf = new SparkConf().setMaster("local").setAppName(getClass.getName)
     TimeSeriesKryoRegistrator.registerKryoClasses(conf)
