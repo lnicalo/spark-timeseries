@@ -178,7 +178,6 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
 
   /**
    * Returns a TimeSeriesRDD that's a sub-slice of the given series.
- *
    * @param start The start date the for slice.
    * @param end The end date for the slice (inclusive).
    */
@@ -190,7 +189,6 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
 
   /**
    * Returns a TimeSeriesRDD that's a sub-slice of the given series.
- *
    * @param start The start date the for slice.
    * @param end The end date for the slice (inclusive).
    */
@@ -415,7 +413,6 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
    * supported for cases with a uniform time series index. See
    * [[http://spark.apache.org/docs/latest/mllib-data-types.html]] for more information on the
    * matrix data structure
- *
    * @param nPartitions number of partitions, default to -1, which represents the same number
    *                    as currently used for the TimeSeriesRDD
    * @return an equivalent IndexedRowMatrix
@@ -443,7 +440,6 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
    * of the type of time index.  See
    * [[http://spark.apache.org/docs/latest/mllib-data-types.html]] for more information on the
    * matrix data structure
- *
    * @return an equivalent RowMatrix
    */
   def toRowMatrix(nPartitions: Int = -1): RowMatrix = {
