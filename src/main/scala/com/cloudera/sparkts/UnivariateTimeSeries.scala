@@ -54,6 +54,10 @@ object UnivariateTimeSeries {
     new DenseVector(ret)
   }
 
+  def rollsum(ts: Vector, n: Int): Vector = {
+    new DenseVector(ts.toArray.sliding(n).toList.map(_.sum).toIndexedSeq.toArray[Double])
+  }
+
   def price2ret(ts: Vector, lag: Int): Vector = {
     val ret = new Array[Double](ts.size - lag)
     var i = 0

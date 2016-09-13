@@ -22,6 +22,7 @@ import java.time._
 import java.util.Arrays
 
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV, diff}
+import breeze.stats.median
 import com.cloudera.sparkts.MatrixUtil._
 import com.cloudera.sparkts.TimeSeriesUtils._
 import org.apache.hadoop.conf.Configuration
@@ -114,16 +115,18 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
   }
 
   /**
-   * Returns a TimeSeriesRDD where each time series is summed with a running n-window. The new
-   * RDD will be missing the first n date-times.
+   * Returns a TimeSeriesRDD where each time series is summed with a running n-window.
+   * Align specifies whether the index of the result should be left- or right-aligned
+   * or centered (default) compared to the rolling window of observations.
    */
   def rollsum(n: Int, align: OptAlign = OptAlign.Center): TimeSeriesRDD[K] = {
-    mapSeries(vec =>
-      new DenseVector(vec.toArray.sliding(n).toList.map(_.sum).toIndexedSeq.toArray[Double]),
+    mapSeries(
+      UnivariateTimeSeries.rollsum(_, n),
       align match {
-        case OptAlign.Right => index.islice(n, index.size)
-        case OptAlign.Center => index.islice(floor((n - 1) / 2).toInt, index.size - n + 1 + floor((n - 1) / 2).toInt)
-        case OptAlign.Left => index.islice(0, index.size - n)
+        case OptAlign.Right => index.islice(n - 1, index.size)
+        case OptAlign.Center => index.islice(floor((n - 1) / 2).toInt,
+                                            floor((n - 1) / 2).toInt + index.size - n + 1)
+        case OptAlign.Left => index.islice(0, index.size - n + 1)
       }
     )
   }
@@ -134,21 +137,18 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
   def sum(): TimeSeriesRDD[K] = rollsum(index.size)
 
   /**
-    * Returns a TimeSeriesRDD where each time series is averaged with a running n-window. The new
-    * RDD will be missing the first n date-times.
+    * Returns a TimeSeriesRDD where each time series is averaged with a running n-window.
+    * Align specifies whether the index of the result should be left- or right-aligned
+    * or centered (default) compared to the rolling window of observations.
     */
-  def mean(n: Int): TimeSeriesRDD[K] = {
-    mapSeries(vec =>
-      new DenseVector(vec.toArray.sliding(n).toList.map(_.sum / n).toIndexedSeq.toArray[Double]),
-      index.slice(n, index.size)
-    )
+  def rollmean(n: Int, align: OptAlign = OptAlign.Center): TimeSeriesRDD[K] = {
+    rollsum(n, align).mapSeries(vec => new DenseVector(vec.toArray.map(_ / n)))
   }
 
   /**
     * Returns a TimeSeriesRDD where each time series is averaged.
     */
-  def mean(): TimeSeriesRDD[K] = mean(index.size)
-
+  def mean(): TimeSeriesRDD[K] = rollmean(index.size)
 
   /**
    * Returns a TimeSeriesRDD where each time series is quotiented with the given order. The new
