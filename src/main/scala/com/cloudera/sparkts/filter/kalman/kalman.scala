@@ -1,29 +1,11 @@
+/**
+  * Created by LNICOLAS on 23/09/2016.
+  */
+
 package com.cloudera.sparkts.filter
 
 import breeze.linalg.{DenseMatrix, DenseVector, inv}
 import com.cloudera.sparkts.filter.Utils._
-
-object Utils {
-  val STATS_EPS = 1e-12
-  val INV_SQRT_2PI = 1.0/Math.sqrt(2.0*Math.PI)
-  def gauss(mean: Double, stdDev: Double, x: Double): Double = {
-    require(Math.abs(stdDev) >= STATS_EPS,
-      s"Stats.gauss, Gauss standard deviation $stdDev is close to zero")
-
-    val y = (x - mean)/stdDev
-    INV_SQRT_2PI*Math.exp(-0.5*y*y)/stdDev
-  }
-
-  val normal = gauss(0.0, 1.0, _: Double)
-
-  def I(n: Int) = DenseMatrix.eye[Double](n)
-
-  type DblMatrix = DenseMatrix[Double]
-  type DblVector = DenseVector[Double]
-  type DblPair = (Double, Double)
-}
-
-
 
 case class KalmanConfig(A: Utils.DblMatrix, B: DblMatrix, H: DblMatrix, P: DblMatrix)
 case class QRNoise(qr: DblPair, profile: Double => Double = normal) {
@@ -52,15 +34,21 @@ case class QRNoise(qr: DblPair, profile: Double => Double = normal) {
   lazy val noisyR: DblVector = DenseVector[Double](r, r)
 }
 
-class Kalman (config: KalmanConfig)
+
+class KalmanFilter (config: KalmanConfig)
              (implicit qrNoise: QRNoise) {
-  def this(A: DblMatrix, B: DblMatrix, H: DblMatrix, P: DblMatrix)
-          (implicit qrNoise: QRNoise) =
+  def this(A: DblMatrix, B: DblMatrix, H: DblMatrix, P: DblMatrix) (implicit qrNoise: QRNoise) =
     this(KalmanConfig(A, B, H, P))(qrNoise)
-  private[this] val Q: DblMatrix =
-    DenseMatrix.rand(config.A.rows, config.A.cols) * qrNoise.qr._1
-  private[this] val R: DblMatrix =
-    DenseMatrix.rand(config.A.rows, config.A.cols) * qrNoise.qr._2
+
+  /**
+    * Process related white noise (mean = 0.0)
+    */
+  private[this] val Q: DblMatrix = DenseMatrix.rand(config.A.rows, config.A.cols) * qrNoise.qr._1
+
+  /**
+    * Measurement related white noise (mean = 0.0)
+    */
+  private[this] val R: DblMatrix = DenseMatrix.rand(config.A.rows, config.A.cols) * qrNoise.qr._2
 
   def filter(x: DblVector, u: DblVector, z: DblVector): (DblVector, DblMatrix) = {
     // Prediction for state vector and covariance
@@ -71,8 +59,31 @@ class Kalman (config: KalmanConfig)
     val K = config.P*config.H.t * inv(config.H*config.P*config.H.t + R)
 
     // Correction based on observation
-    x_ = x_ + K * (z - config.H* x_)
+    x_ = x_ + K * (z - config.H * x_)
     P = P - K*config.H*config.P
     (x_, P)
   }
+}
+
+object KalmanFilter {
+  /**
+    * Constructor for the Kalman filter with Control Matrix B
+    * @param A State transition matrix  [
+    * @param B Control state matrix
+    * @param H Matrix that defines the dependency of the measurement on the state of the system
+    * @param P Covariance error matrix
+    * @param qrNoise Implicit value representing the white noise for the process Q and the measurement P
+    */
+  def apply(A: DblMatrix, B: DblMatrix, H: DblMatrix, P: DblMatrix)
+           (implicit qrNoise: QRNoise): KalmanFilter = new KalmanFilter(A, B, H,P)(qrNoise)
+
+  /**
+    * Constructor for the Kalman filter without Control Matrix B
+    * @param A State transition matrix  [
+    * @param H Matrix that defines the dependency of the measurement on the state of the system
+    * @param P Covariance error matrix
+    * @param qrNoise Implicit value representing the white noise for the process Q and the measurement P
+    */
+  def apply(A: DblMatrix, H: DblMatrix, P: DblMatrix)(implicit qrNoise: QRNoise): KalmanFilter =
+    new KalmanFilter(A, DenseMatrix.zeros(A.rows, A.cols), H, P)(qrNoise)
 }
