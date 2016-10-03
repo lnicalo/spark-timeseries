@@ -570,6 +570,31 @@ class TimeSeriesRDD[K](val index: DateTimeIndex, parent: RDD[(K, Vector)])
     * Returns a TimeSeriesRDD where each time series is averaged.
     */
   def mean(): TimeSeriesRDD[K] = rollMean(index.size)
+
+  /**
+    * Returns a TimeSeriesRDD where each time series is summed with a running n-window.
+    * Align specifies whether the index of the result should be left- or right-aligned
+    * or centered (default) compared to the rolling window of weights.
+    *
+    * Right alignment means that, in the output series, the value at each time point
+    * will be computed using the values in the input series at the previous N time points.
+    * Left alignment is similar, but uses the values in the following N time points.
+    * N is the size of the rolling window.
+    *
+    * @param w Rolling window of weights
+    * @param align Alignment
+    */
+  def weightedAverage(w: Vector, align: String = "Center"): TimeSeriesRDD[K] = {
+    mapSeries(
+      UnivariateTimeSeries.weightedAverage(_, w),
+      align match {
+        case "Right" => index.islice(w.size - 1, index.size)
+        case "Center" => index.islice(floor((w.size - 1) / 2).toInt,
+          floor((w.size - 1) / 2).toInt + index.size - w.size + 1)
+        case "Left" => index.islice(0, index.size - w.size + 1)
+      }
+    )
+  }
 }
 
 object TimeSeriesRDD {

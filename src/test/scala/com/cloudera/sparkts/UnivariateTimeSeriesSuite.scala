@@ -18,13 +18,9 @@ package com.cloudera.sparkts
 import com.cloudera.sparkts.models.ARModel
 
 import scala.Double.NaN
-
 import org.apache.spark.mllib.linalg._
-
 import com.cloudera.sparkts.UnivariateTimeSeries._
-
 import org.apache.commons.math3.random.MersenneTwister
-
 import org.scalatest.{FunSuite, ShouldMatchers}
 
 class UnivariateTimeSeriesSuite extends FunSuite with ShouldMatchers {

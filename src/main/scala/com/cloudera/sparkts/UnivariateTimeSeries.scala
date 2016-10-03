@@ -19,9 +19,10 @@ import java.util.Arrays
 
 import breeze.stats._
 import com.cloudera.sparkts.models.{ARModel, Autoregression}
-
+import com.cloudera.sparkts.MatrixUtil.toBreeze
 import org.apache.commons.math3.analysis.interpolation.SplineInterpolator
 import org.apache.spark.mllib.linalg._
+import breeze.linalg.{DenseVector => BDV}
 
 object UnivariateTimeSeries {
 
@@ -496,6 +497,14 @@ object UnivariateTimeSeries {
 
   def rollSum(ts: Vector, n: Int): Vector = {
     new DenseVector(ts.toArray.sliding(n).toList.map(_.sum).toIndexedSeq.toArray[Double])
+  }
+
+  /**
+    * Computes weighted average of a time series given a vector of weights.
+    */
+  def weightedAverage(ts: Vector, weights: Vector): Vector = {
+    val w = toBreeze(weights)
+    new DenseVector(ts.toArray.sliding(w.size).toList.map(BDV(_).t * w).toArray)
   }
 
 }
