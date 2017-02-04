@@ -498,5 +498,20 @@ object UnivariateTimeSeries {
     new DenseVector(ts.toArray.sliding(n).toList.map(_.sum).toIndexedSeq.toArray[Double])
   }
 
+  def medianSmoothing(ts: Vector, n: Int): Vector = {
+    require(n <= ts.size)
+
+    def median(v: Array[Double]): Double = {
+      Arrays.sort(v)
+      if (n % 2 == 0) {
+        (v(n/2) + v(n/2-1)) / 2
+      }
+      else {
+        v((n-1)/2)
+      }
+    }
+    new DenseVector(ts.toArray.sliding(n).toList.map(median).toIndexedSeq.toArray[Double])
+  }
+
 }
 

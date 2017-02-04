@@ -156,5 +156,16 @@ class UnivariateTimeSeriesSuite extends FunSuite with ShouldMatchers {
       diffedOfOrder6(i) should be (diffedOneMore(i) +- 1e-6)
     }
   }
+
+  test("media smoothing") {
+    // replicating downsampling examples
+    // from http://www.mathworks.com/help/signal/ref/downsample.html?searchHighlight=downsample
+    val y = new DenseVector((1 to 10).toArray.map(_.toDouble))
+    val out1 = medianSmoothing(y, 3).toArray
+    out1 should be ((2 to 9).toArray)
+
+    val out2 = medianSmoothing(y, 10).toArray
+    out2 should be (Array(5.5))
+  }
 }
 
